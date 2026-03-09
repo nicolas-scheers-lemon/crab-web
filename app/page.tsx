@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { SpinningModel } from "../src/components/SpinningModel";
 import { ThemeToggle } from "../src/components/ThemeToggle";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-sand-50 font-sans dark:bg-black">
+    <div className="flex flex-col min-h-screen items-center justify-center bg-sand-50 font-sans dark:bg-black">
       <ThemeToggle />
       <main className="flex min-h-screen w-full flex-col items-center p-4 bg-sand-50 dark:bg-black sm:items-start gap-4">
         <div className="border border-sand-200 dark:border-white p-4 w-full">
@@ -42,6 +43,19 @@ export default function Home() {
           </div>
         </div>
       </main>
+      <footer className="border-t border-sand-200 dark:border-white p-4 w-full">
+        <div className="max-w-7xl mx-auto">
+          <p className="text-center text-sand-300 dark:text-white font-mono">
+            {new Date().getFullYear()} Crab Web. All rights undeserved.
+          </p>
+          <Link
+            href="https://www.tiktok.com/@citroenschoen"
+            className="text-center text-sand-300 dark:text-white font-mono"
+          >
+            Look at my videos
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }
