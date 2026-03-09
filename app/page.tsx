@@ -23,11 +23,12 @@ export default function Home() {
         </div>
         <div className="border border-sand-200 dark:border-white p-4 w-full flex-1">
           <div className="h-full w-full flex items-center justify-center">
-            <div className="hidden dark:block w-full sm:w-1/2 aspect-2/3">
+            <div className="hidden dark:block w-full sm:w-1/2 aspect-2/3 max-w-xl">
               <SpinningModel
                 url="/models/Squid/Squid_01.obj"
                 mtlUrl="/models/Squid/Squid_01.mtl"
                 cameraPosition={[300, 100, 500]}
+                lightIntensity={70}
               />
             </div>
             <div className="block dark:hidden sm:w-1/2 aspect-square">
@@ -35,6 +36,7 @@ export default function Home() {
                 url="/models/Crab/Mesh_Crab.obj"
                 mtlUrl="/models/Crab/Mesh_Crab.mtl"
                 cameraPosition={[0, 0, 300]}
+                lightIntensity={1}
               />
             </div>
           </div>

@@ -9,6 +9,7 @@ interface BackgroundModelProps {
   url: string;
   mtlUrl: string;
   cameraPosition?: [number, number, number];
+  lightIntensity?: number;
 }
 
 function Model({ url, mtlUrl }: BackgroundModelProps) {
@@ -50,13 +51,17 @@ export function SpinningModel({
   url,
   mtlUrl,
   cameraPosition = [0, 0, 300],
+  lightIntensity = 1,
 }: BackgroundModelProps) {
   return (
     <Canvas camera={{ position: cameraPosition, fov: 45 }} gl={{ alpha: true }}>
       {/* Lighting */}
-      <ambientLight intensity={101} />
-      <directionalLight position={[5, 5, 5]} intensity={111} />
-      <directionalLight position={[-5, -5, -5]} intensity={111} />
+      <ambientLight intensity={lightIntensity * 1.3} />
+      <directionalLight position={[5, 5, 5]} intensity={lightIntensity * 0.3} />
+      <directionalLight
+        position={[-5, -5, -5]}
+        intensity={lightIntensity * 0.3}
+      />
 
       {/* Adds realistic reflections */}
       <Environment preset="studio" />
