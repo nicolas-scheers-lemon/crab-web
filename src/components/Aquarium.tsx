@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { createWorld, drawWorld, dropFood, resizeWorld, screenToWorld, updateWorld } from "./aquarium/world";
 
-export function Aquarium() {
+export function Aquarium({ night = false }: { night?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -11,7 +11,7 @@ export function Aquarium() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
-    const world = createWorld();
+    const world = createWorld(night);
 
     const resize = () => {
       resizeWorld(world, window.innerWidth, window.innerHeight);
@@ -45,7 +45,7 @@ export function Aquarium() {
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onPointerDown);
     };
-  }, []);
+  }, [night]);
 
   return <canvas ref={canvasRef} className="block touch-none" style={{ imageRendering: "pixelated" }} />;
 }

@@ -31,6 +31,12 @@ export const PALETTE: Record<string, string> = {
   V: "#6b21a8",
   n: "#d9a066",
   N: "#a16207",
+  i: "#cbd5e1",
+  I: "#64748b",
+  j: "#dbeafe",
+  J: "#f9a8d4",
+  X: "#a5b4fc",
+  x: "#c7d2fe",
 };
 
 type FishDef = {
@@ -95,9 +101,93 @@ export const FISH = {
       "......PPPPPP........",
     ],
   },
+  // Nocturnal reef fish
+  cardinal: {
+    tail: 2,
+    speed: 12,
+    rows: [
+      "...q.q...",
+      "Q.qqqqqq.",
+      "QQqqqqwkq",
+      "Q.qqqqqqq",
+      "...qqqq..",
+    ],
+  },
+  sweeper: {
+    tail: 3,
+    speed: 15,
+    rows: [
+      "....IIIII..",
+      "I..IiiiiiI.",
+      "IIIiiiiiwki",
+      "I..IiiiiiI.",
+      "....IIIII..",
+    ],
+  },
+  soldier: {
+    tail: 3,
+    speed: 7,
+    rows: [
+      ".....RRRRR...",
+      "R...RrrrrrRR.",
+      "RR.RrrrrrrkkR",
+      "RRRrrrrrrrkwr",
+      "RR.RrrrrrrrrR",
+      "R...RrrrrrRR.",
+      ".....RRRRR...",
+    ],
+  },
 } satisfies Record<string, FishDef>;
 
 export type FishKind = keyof typeof FISH;
+
+/** Relaxed moon jelly bell: domed, with the four pink gonads and a darker rim. */
+const JELLY_BELL = [
+  "....XXX....",
+  "..XXjjjXX..",
+  ".XjjjjjjjX.",
+  ".XjJJjJJjX.",
+  "XjjJjjjJjjX",
+  "XjjjJjJjjjX",
+  "XXXXXXXXXXX",
+];
+
+/**
+ * Moon jelly: frames 0 and 2 are relaxed with the fringe tentacles and oral arms
+ * swaying, frame 1 is the bell contracted mid-stroke.
+ */
+export const JELLY_FRAMES: string[][] = [
+  [
+    ...JELLY_BELL,
+    "x.x.jjj.x.x",
+    ".x..j.j..x.",
+    "x...j.j...x",
+    ".x..j.j..x.",
+    "....j.j....",
+  ],
+  [
+    "....XXX....",
+    "...XjjjX...",
+    "..XjjjjjX..",
+    "..XjJjJjX..",
+    "..XJjjjJX..",
+    "..XjJjJjX..",
+    "..XXXXXXX..",
+    "...x.j.x...",
+    "...x.j.x...",
+    "..x.j.j.x..",
+    "..x.j.j.x..",
+    "...x...x...",
+  ],
+  [
+    ...JELLY_BELL,
+    "x.x.jjj.x.x",
+    "x...j.j...x",
+    ".x..j.j..x.",
+    "x...j.j...x",
+    "...j...j...",
+  ],
+];
 
 export const CRAB_FRAMES: string[][] = [
   [
@@ -303,6 +393,10 @@ export function buildShrimpSprite(): Sprite {
 
 export function buildCastleSprite(): Sprite {
   return buildSprite(CASTLE_FRAMES);
+}
+
+export function buildJellySprite(): Sprite {
+  return buildSprite(JELLY_FRAMES);
 }
 
 export function buildHermitSprite(): Sprite {

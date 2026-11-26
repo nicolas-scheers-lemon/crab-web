@@ -6,6 +6,7 @@ import {
   buildCastleSprite,
   buildHermitSprite,
   buildCoralSprites,
+  buildJellySprite,
   CASTLE_DOOR,
   type CoralKind,
   type FishKind,
@@ -102,7 +103,22 @@ type Hermit = {
   peekTimer: number;
 };
 
+/** Moon jelly drifting through the night aquarium. */
+type Jelly = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  frame: number;
+  pulseTimer: number;
+  phase: number;
+};
+
+/** Bioluminescent plankton speck; flashes when a fish swims through it or food drops nearby. */
+type Plankton = { x: number; y: number; vx: number; vy: number; phase: number; flash: number };
+
 export type World = {
+  night: boolean;
   W: number;
   H: number;
   scale: number;
@@ -124,15 +140,29 @@ export type World = {
   shrimp: Shrimp;
   castle: Castle;
   hermit: Hermit;
+  jellySprite: Sprite;
+  jellies: Jelly[];
+  plankton: Plankton[];
 };
 
-const POPULATION: [FishKind, number][] = [
+const DAY_POPULATION: [FishKind, number][] = [
   ["clown", 2],
   ["tang", 2],
   ["yellow", 3],
   ["tetra", 4],
   ["grouper", 1],
 ];
+
+const NIGHT_POPULATION: [FishKind, number][] = [
+  ["cardinal", 4],
+  ["sweeper", 5],
+  ["soldier", 2],
+];
+
+/** The whole scene is multiplied with this colour at night. */
+const NIGHT_TINT = "#34428a";
+const MOONLIGHT = "#c7d2fe";
+const PLANKTON = "#5eead4";
 
 const WATER = ["#2a8bc4", "#2379b0", "#1c679b", "#165686", "#114570", "#0d365c"];
 const SAND_TOP = "#f5e6d0";
@@ -172,9 +202,10 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-export function createWorld(): World {
+export function createWorld(night = false): World {
   const fishSprites = buildFishSprites();
   return {
+    night,
     W: 0,
     H: 0,
     scale: 1,
@@ -228,6 +259,9 @@ export function createWorld(): World {
       peeking: false,
       peekTimer: 1,
     },
+    jellySprite: buildJellySprite(),
+    jellies: [],
+    plankton: [],
   };
 }
 
@@ -254,11 +288,21 @@ export function resizeWorld(world: World, cssWidth: number, cssHeight: number) {
   renderBackground(world);
 
   if (world.fish.length === 0) {
-    for (const [kind, count] of POPULATION) {
+    for (const [kind, count] of world.night ? NIGHT_POPULATION : DAY_POPULATION) {
       for (let i = 0; i < count; i++) world.fish.push(spawnFish(world, kind));
     }
     world.crab.x = rand(0, W - world.crab.sprite.w);
     world.shrimp.x = rand(0, W - world.shrimp.sprite.w);
+  }
+
+  if (world.night) {
+    const jellyCount = Math.max(2, Math.round(W / 90));
+    while (world.jellies.length < jellyCount) world.jellies.push(spawnJelly(world));
+    world.jellies.length = jellyCount;
+    for (const j of world.jellies) {
+      j.x = clamp(j.x, 0, W - world.jellySprite.w);
+      j.y = clamp(j.y, 3, jellyMaxY(world));
+    }
   }
 
   for (const f of world.fish) {
@@ -299,9 +343,34 @@ function spawnFish(world: World, kind: FishKind): Fish {
   };
 }
 
+const jellyMaxY = (world: World) => Math.max(3, world.sandTop - world.jellySprite.h - 6);
+
+function spawnJelly(world: World): Jelly {
+  return {
+    x: rand(0, world.W - world.jellySprite.w),
+    y: rand(world.sandTop * 0.15, world.sandTop * 0.7),
+    vx: rand(-1, 1),
+    vy: 0,
+    frame: 0,
+    pulseTimer: rand(0, 2),
+    phase: rand(0, Math.PI * 2),
+  };
+}
+
 function layoutScenery(world: World) {
   const { W } = world;
   const waterDepth = world.sandTop;
+
+  world.plankton = world.night
+    ? Array.from({ length: Math.round((W * waterDepth) / 350) }, () => ({
+        x: rand(0, W),
+        y: rand(2, waterDepth - 2),
+        vx: rand(-0.6, 0.6),
+        vy: rand(-0.4, 0.4),
+        phase: rand(0, Math.PI * 2),
+        flash: 0,
+      }))
+    : [];
 
   const plantCount = Math.max(3, Math.round(W / 32));
   world.plants = Array.from({ length: plantCount }, (_, i) => {
@@ -437,6 +506,9 @@ export function dropFood(world: World, point: Vec) {
     });
   }
   if (world.food.length > MAX_FOOD) world.food.splice(0, world.food.length - MAX_FOOD);
+  for (const p of world.plankton) {
+    if (Math.hypot(p.x - point.x, p.y - point.y) < 10) p.flash = 1;
+  }
 }
 
 function updateFood(world: World, dt: number) {
@@ -495,6 +567,50 @@ export function updateWorld(world: World, dt: number) {
 
   for (const b of world.bubbles) b.y -= b.vy * dt;
   world.bubbles = world.bubbles.filter((b) => b.y > 1);
+
+  if (world.night) {
+    for (const j of world.jellies) updateJelly(world, j, dt);
+    updatePlankton(world, dt);
+  }
+}
+
+function updateJelly(world: World, j: Jelly, dt: number) {
+  const maxY = jellyMaxY(world);
+  j.pulseTimer -= dt;
+  if (j.pulseTimer <= 0) {
+    // Contract the bell: a short upward stroke, pulsing more often when sinking too low.
+    j.vy = -rand(4, 7);
+    j.frame = 1;
+    j.pulseTimer = j.y > maxY - 4 ? rand(0.6, 1) : rand(1.5, 3.5);
+  }
+  if (j.frame === 1 && j.vy > -1.5) j.frame = 0;
+  j.vy = Math.min(1.5, j.vy + 3 * dt);
+  j.y = clamp(j.y + j.vy * dt, 3, maxY);
+
+  const maxX = world.W - world.jellySprite.w;
+  j.x += (j.vx + Math.sin(world.t * 0.4 + j.phase) * 1.5) * dt;
+  if (j.x < 0 || j.x > maxX) {
+    j.x = clamp(j.x, 0, maxX);
+    j.vx = -j.vx;
+  }
+}
+
+function updatePlankton(world: World, dt: number) {
+  const { W, sandTop } = world;
+  for (const p of world.plankton) {
+    p.x += (p.vx + Math.sin(world.t * 0.5 + p.phase) * 0.5) * dt;
+    p.y += p.vy * dt;
+    if (p.x < 0) p.x += W;
+    if (p.x >= W) p.x -= W;
+    if (p.y < 2 || p.y > sandTop - 2) p.vy = -p.vy;
+    p.flash = Math.max(0, p.flash - dt * 1.2);
+    for (const f of world.fish) {
+      if (p.x >= f.x - 1 && p.x <= f.x + f.sprite.w + 1 && p.y >= f.y - 1 && p.y <= f.y + f.sprite.h + 1) {
+        p.flash = 1;
+        break;
+      }
+    }
+  }
 }
 
 function updateFish(world: World, f: Fish, dt: number) {
@@ -842,6 +958,16 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.drawImage(frames[f.frame], Math.round(f.x), Math.round(f.y));
   }
 
+  // Moon jellies (night only), slightly see-through
+  const jelly = world.jellySprite;
+  ctx.globalAlpha = 0.85;
+  for (const j of world.jellies) {
+    // Frame 1 is the contracted stroke; while relaxed the tentacles sway between frames 0 and 2.
+    const frame = j.frame === 1 ? 1 : Math.floor(t * 1.5 + j.phase) % 2 ? 2 : 0;
+    ctx.drawImage(jelly.right[frame], Math.round(j.x), Math.round(j.y));
+  }
+  ctx.globalAlpha = 1;
+
   // Seagrass, in front of fish dipping down for food
   for (const g of world.grass) {
     const base = sandAt(world, g.x);
@@ -870,6 +996,79 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     const hermitFrames = hermit.dir === 1 ? hermit.sprite.right : hermit.sprite.left;
     ctx.drawImage(hermitFrames[hermit.frame], Math.round(hermit.x), Math.round(hermitY));
   }
+
+  if (world.night) drawNight(ctx, world);
+}
+
+/** Soft halo around a single bright pixel; expects the "lighter" composite mode. */
+function drawGlow(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, strength: number) {
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.12 * strength;
+  ctx.fillRect(x - 2, y - 1, 5, 3);
+  ctx.fillRect(x - 1, y - 2, 3, 5);
+  ctx.globalAlpha = 0.3 * strength;
+  ctx.fillRect(x - 1, y - 1, 3, 3);
+  ctx.globalAlpha = strength;
+  ctx.fillRect(x, y, 1, 1);
+}
+
+/** Darken the day scene to moonlight, then draw everything that glows on top. */
+function drawNight(ctx: CanvasRenderingContext2D, world: World) {
+  const { W, H, t } = world;
+
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = NIGHT_TINT;
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = "source-over";
+
+  // Moonbeam and moonlit surface
+  ctx.fillStyle = MOONLIGHT;
+  ctx.globalAlpha = 0.05;
+  const beamX = W * 0.25 + Math.sin(t * 0.2) * 3;
+  for (let y = 0; y < world.sandTop; y++) {
+    ctx.fillRect(Math.round(beamX + y * 0.25), y, 7, 1);
+  }
+  ctx.globalAlpha = 0.4;
+  for (let x = 0; x < W; x++) {
+    if (Math.sin(x * 0.25 + t * 2) > 0.6) ctx.fillRect(x, 0, 1, 1);
+  }
+
+  // Food pellets catch a little moonlight so you can see where you fed.
+  ctx.globalAlpha = 0.25;
+  for (const p of world.food) {
+    ctx.fillStyle = FOOD[Math.floor(p.phase * 10) % FOOD.length];
+    ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+  }
+
+  ctx.globalCompositeOperation = "lighter";
+
+  // Plankton
+  ctx.fillStyle = PLANKTON;
+  for (const p of world.plankton) {
+    const twinkle = Math.sin(t * 2 + p.phase) * 0.5 + 0.5;
+    const x = Math.round(p.x);
+    const y = Math.round(p.y);
+    if (p.flash > 0.2) {
+      drawGlow(ctx, x, y, PLANKTON, p.flash);
+      ctx.fillStyle = PLANKTON;
+    } else {
+      ctx.globalAlpha = 0.12 + twinkle * 0.25;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  // The hermit's eyes shine from the dark doorway
+  if (world.hermit.state === "home" && world.hermit.peeking) {
+    const castle = world.castle;
+    const eyeY = castle.y + castle.sprite.h - 4;
+    ctx.fillStyle = "#f8fafc";
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(castle.x + CASTLE_DOOR.x - 1, eyeY, 1, 1);
+    ctx.fillRect(castle.x + CASTLE_DOOR.x + 1, eyeY, 1, 1);
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
 }
 
 /** Convert a pointer position on the canvas to world pixel coordinates. */
